@@ -11,14 +11,17 @@ final class TrackView: NSView {
   private var bars = [Float](repeating: 0, count: AudioSpectrum.bandCount)
   private var peaks = [Float](repeating: 0, count: AudioSpectrum.bandCount)
 
+  // No fixed width: low hugging lets the Touch Bar stretch the view into any spare room.
   override init(frame: NSRect) {
     super.init(frame: frame)
     allowedTouchTypes = [.direct]
+    setContentHuggingPriority(.init(1), for: .horizontal)
+    widthAnchor.constraint(greaterThanOrEqualToConstant: 380).isActive = true
   }
 
   required init?(coder: NSCoder) { fatalError("TrackView is built in code") }
 
-  override var intrinsicContentSize: NSSize { NSSize(width: 380, height: 30) }
+  override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 30) }
 
   // Bars jump up at once and fall back gently; peak dots hang a little longer.
   func show(levels: [Float]) {

@@ -159,7 +159,8 @@ private func drawCenterPulse(_ f: SpectrumFrame) {
     let gap = abs(x - f.playedUntil)
     guard gap > 7 else { continue }
     let distance = gap / f.rect.width
-    let half = min((0.5 + CGFloat(f.bars[band]) * 5) * (0.5 + distance) * f.scale, f.rect.height / 2)
+    let half = min(
+      (0.5 + CGFloat(f.bars[band]) * 8) * (0.75 + distance * 0.5) * f.scale, f.rect.height / 2)
     fill(NSRect(x: x, y: f.mid - half, width: 1, height: half * 2),
          color(hue: x < f.playedUntil ? 205 : 315, alpha: 0.35 + 0.65 * (1 - distance)))
   }

@@ -5,7 +5,8 @@ import CoreAudio
 /// Needs the "System Audio Recording" permission; without it the tap delivers silence.
 // @unchecked: `samples` is touched only on `queue`; start and stop run on the main thread.
 final class AudioSpectrum: @unchecked Sendable {
-  static let bandCount = 96
+  // About 3 pt per band across the stretched Touch Bar strip.
+  static let bandCount = 160
   private static let size = 2048
 
   private let onLevels: @Sendable ([Float]) -> Void

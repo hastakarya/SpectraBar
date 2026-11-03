@@ -29,10 +29,11 @@ final class SimulatedSpectrum {
     let count = AudioSpectrum.bandCount
     let kick = pow(max(0, sin(time * 7.3)), 6)
     onLevels((0..<count).map { band in
-      let x = Float(band)
+      // Patterns were tuned on 96 bands; scaling keeps their shape at any band count.
+      let x = Float(band) * 96 / Float(count)
       let body = 0.15 + 0.4 * abs(sin(x * 0.53 + time * 2.3)) * abs(cos(x * 0.17 - time * 1.1))
       let spike: Float = Float.random(in: 0..<1) < 0.12 ? .random(in: 0..<0.5) : 0
-      let drum = kick * 0.5 * exp(-pow(x - Float(count) * 0.3, 2) / 300)
+      let drum = kick * 0.5 * exp(-pow(x - 96 * 0.3, 2) / 300)
       return min(body + spike + drum, 1)
     })
   }
