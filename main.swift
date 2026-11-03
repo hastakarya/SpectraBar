@@ -12,6 +12,15 @@ private func symbol(_ name: String, _ description: String, size: CGFloat = 13) -
     .withSymbolConfiguration(.init(pointSize: size, weight: .regular))!
 }
 
+private enum SpectrumSource: String, CaseIterable {
+  case real, simulated
+
+  var title: String { self == .real ? "Real sound" : "Simulated" }
+}
+
+private let sourceKey = "spectrumSource"
+private let styleKey = "spectrumStyle"
+
 @MainActor
 final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
   private var activePlayer: Player?
@@ -25,6 +34,13 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
   private lazy var spectrum = AudioSpectrum { [weak self] levels in
     DispatchQueue.main.async { MainActor.assumeIsolated { self?.track.show(levels: levels) } }
   }
+  private lazy var simulated = SimulatedSpectrum { [weak self] levels in
+    self?.track.show(levels: levels)
+  }
+  private var source =
+    SpectrumSource(rawValue: UserDefaults.standard.string(forKey: sourceKey) ?? "") ?? .real
+  private let sourceMenu = NSMenu()
+  private let styleMenu = NSMenu()
   private var statusItem: NSStatusItem?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -39,6 +55,8 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     DFRElementSetControlStripPresenceForIdentifier(.tray, true)
     DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
+    track.style =
+      SpectrumStyle(rawValue: UserDefaults.standard.string(forKey: styleKey) ?? "") ?? .needles
     setUpArt()
     setUpMenuBar()
     refresh()
@@ -49,6 +67,7 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
   func applicationWillTerminate(_ notification: Notification) {
     DFRElementSetControlStripPresenceForIdentifier(.tray, false)
     spectrum.stop()
+    simulated.stop()
   }
 
   func touchBar(
@@ -91,10 +110,9 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     showArt(current?.1.artworkURL)
     // The tap runs only while music plays, so the system recording indicator stays off otherwise.
     if isPlaying {
-      spectrum.start()
+      source == .real ? spectrum.start() : simulated.start()
     } else {
-      spectrum.stop()
-      track.clearLevels()
+      stopSpectrum()
     }
 
     let ids: [NSTouchBarItem.Identifier] =
@@ -103,6 +121,42 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     let wasEmpty = touchBar.defaultItemIdentifiers.isEmpty
     touchBar.defaultItemIdentifiers = ids
     if ids.isEmpty { minimize() } else if wasEmpty { present() }
+  }
+
+  private func stopSpectrum() {
+    spectrum.stop()
+    simulated.stop()
+    track.clearLevels()
+  }
+
+  @objc private func chooseSource(_ item: NSMenuItem) {
+    guard let chosen = (item.representedObject as? String).flatMap(SpectrumSource.init) else { return }
+    source = chosen
+    UserDefaults.standard.set(chosen.rawValue, forKey: sourceKey)
+    mark(sourceMenu, source.rawValue)
+    stopSpectrum()
+    refresh()
+  }
+
+  @objc private func chooseStyle(_ item: NSMenuItem) {
+    guard let chosen = (item.representedObject as? String).flatMap(SpectrumStyle.init) else { return }
+    track.style = chosen
+    UserDefaults.standard.set(chosen.rawValue, forKey: styleKey)
+    mark(styleMenu, chosen.rawValue)
+  }
+
+  private func mark(_ menu: NSMenu, _ chosen: String) {
+    for item in menu.items { item.state = item.representedObject as? String == chosen ? .on : .off }
+  }
+
+  private func addChoices(
+    to menu: NSMenu, _ choices: [(title: String, value: String)], action: Selector
+  ) {
+    for choice in choices {
+      let item = menu.addItem(withTitle: choice.title, action: action, keyEquivalent: "")
+      item.target = self
+      item.representedObject = choice.value
+    }
   }
 
   private func showArt(_ url: String?) {
@@ -177,6 +231,17 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     let menu = NSMenu()
     menu.addItem(withTitle: "Show on Touch Bar", action: #selector(present), keyEquivalent: "")
       .target = self
+    addChoices(
+      to: sourceMenu, SpectrumSource.allCases.map { ($0.title, $0.rawValue) },
+      action: #selector(chooseSource))
+    mark(sourceMenu, source.rawValue)
+    menu.setSubmenu(sourceMenu, for: menu.addItem(withTitle: "Equalizer", action: nil, keyEquivalent: ""))
+    addChoices(
+      to: styleMenu, SpectrumStyle.allCases.map { ($0.title, $0.rawValue) },
+      action: #selector(chooseStyle))
+    mark(styleMenu, track.style.rawValue)
+    menu.setSubmenu(styleMenu, for: menu.addItem(withTitle: "Style", action: nil, keyEquivalent: ""))
+    menu.addItem(.separator())
     menu.addItem(
       withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     statusItem?.menu = menu

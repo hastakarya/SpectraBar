@@ -9,7 +9,7 @@ app=build/TouchBarDisplay.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS"
 cp Info.plist "$app/Contents/"
-swiftc -O main.swift TrackView.swift Players.swift AudioSpectrum.swift \
+swiftc -O main.swift TrackView.swift Players.swift AudioSpectrum.swift SimulatedSpectrum.swift SpectrumStyle.swift \
   -import-objc-header TouchBarPrivate.h \
   -F "$sdk/System/Library/PrivateFrameworks" -framework DFRFoundation \
   -o "$app/Contents/MacOS/TouchBarDisplay"

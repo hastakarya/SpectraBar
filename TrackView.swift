@@ -1,11 +1,12 @@
 import AppKit
 
-/// Song and time above rainbow spectrum needles that double as the progress bar.
+/// Song and time above an equalizer strip that doubles as the progress bar.
 /// Sliding a finger across the view scrubs; lifting it seeks.
 final class TrackView: NSView {
   var track: NowPlaying? { didSet { needsDisplay = true } }
   var hint: String? { didSet { needsDisplay = true } }
   var onSeek: ((Double) -> Void)?
+  var style = SpectrumStyle.needles { didSet { needsDisplay = true } }
   private var scrubFraction: Double?
   private var bars = [Float](repeating: 0, count: AudioSpectrum.bandCount)
   private var peaks = [Float](repeating: 0, count: AudioSpectrum.bandCount)
@@ -49,35 +50,30 @@ final class TrackView: NSView {
 
     let time = "\(clock(position)) / \(clock(track.duration))"
     let timeWidth = time.size(withAttributes: secondary).width
-    time.draw(at: NSPoint(x: bounds.width - timeWidth, y: 16.5), withAttributes: secondary)
+    time.draw(
+      at: NSPoint(x: bounds.width - timeWidth, y: stripHeight + 0.5), withAttributes: secondary)
 
     let truncating = NSMutableParagraphStyle()
     truncating.lineBreakMode = .byTruncatingTail
     "\(track.title) — \(track.artist)".draw(
-      with: NSRect(x: 0, y: 16, width: bounds.width - timeWidth - 8, height: 14),
+      with: NSRect(x: 0, y: stripHeight, width: bounds.width - timeWidth - 8, height: 13),
       options: .usesLineFragmentOrigin,
       attributes: [
-        .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+        .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
         .foregroundColor: NSColor.labelColor,
         .paragraphStyle: truncating,
       ])
 
-    drawNeedles(playedUntil: bounds.width * fraction)
+    drawSpectrum(playedUntil: bounds.width * fraction)
   }
 
-  private func drawNeedles(playedUntil: CGFloat) {
-    let step = bounds.width / CGFloat(bars.count)
-    // The rainbow drifts one full turn every 9 seconds.
-    let phase = Date().timeIntervalSinceReferenceDate / 9
-    for i in bars.indices {
-      let x = CGFloat(i) * step
-      let hue = (Double(i) / Double(bars.count) * 300 / 360 + phase).truncatingRemainder(dividingBy: 1)
-      NSColor(hue: hue, saturation: 0.85, brightness: 1, alpha: x < playedUntil ? 1 : 0.3).setFill()
-      NSRect(x: x, y: 1, width: 1, height: 1 + CGFloat(bars[i]) * 11).fill(using: .sourceOver)
-      NSRect(x: x, y: 4 + CGFloat(peaks[i]) * 11, width: 1, height: 1).fill(using: .sourceOver)
-    }
+  private func drawSpectrum(playedUntil: CGFloat) {
+    style.draw(SpectrumFrame(
+      rect: NSRect(x: 0, y: 0, width: bounds.width, height: stripHeight), bars: bars, peaks: peaks,
+      playedUntil: playedUntil))
+    guard style.drawsPlayhead else { return }
     NSColor.white.setFill()
-    NSRect(x: min(playedUntil, bounds.width - 1.5), y: 0, width: 1.5, height: 15).fill()
+    NSRect(x: min(playedUntil, bounds.width - 1.5), y: 0, width: 1.5, height: stripHeight).fill()
   }
 
   override func touchesBegan(with event: NSEvent) { scrub(event) }
@@ -102,6 +98,9 @@ final class TrackView: NSView {
     needsDisplay = true
   }
 }
+
+/// The equalizer gets the 17 pt under the 10 pt title line, of the bar's 30 pt.
+private let stripHeight: CGFloat = 17
 
 private func clock(_ seconds: Double) -> String {
   let total = Int(seconds)
