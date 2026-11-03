@@ -57,11 +57,15 @@ private func appPlayer(_ bundleID: String, durationDivisor: Int, artwork: String
 let needsChromeJS = "needs-js"
 
 // The JS must avoid double quotes and backslashes: it sits inside an AppleScript string.
+// YouTube Music plays one continuous stream, so the <video> time runs across songs;
+// the progress slider holds the current song's time.
 private let youTubeMusicTrackJS = """
   (() => { const v = document.querySelector('video'); const m = navigator.mediaSession.metadata; \
-  if (!v || !m || !m.title) return ''; \
-  return [v.paused ? 'paused' : 'playing', m.title, m.artist, Math.floor(v.currentTime), \
-  Math.floor(v.duration || 0), (m.artwork[0] || {}).src || ''].join(String.fromCharCode(9)); })()
+  const s = document.querySelector('#progress-bar'); \
+  if (!v || !m || !m.title || !s) return ''; \
+  return [v.paused ? 'paused' : 'playing', m.title, m.artist, \
+  Number(s.getAttribute('aria-valuenow')) || 0, Number(s.getAttribute('aria-valuemax')) || 0, \
+  (m.artwork[0] || {}).src || ''].join(String.fromCharCode(9)); })()
   """
 
 // Picks the playing YouTube Music tab, else the first one with a track, then runs `action` on it,
@@ -106,7 +110,9 @@ private let youTubeMusic = Player(
     "execute chosen javascript \"document.querySelector('.previous-button').click()\""),
   seek: {
     onYouTubeMusicTab(
-      "execute chosen javascript \"document.querySelector('video').currentTime = \($0)\"")
+      // Shift the stream by the gap between the target and the song's slider position.
+      "execute chosen javascript \"document.querySelector('video').currentTime += \($0) - "
+        + "Number(document.querySelector('#progress-bar').getAttribute('aria-valuenow'))\"")
   })
 
 // Spotify reports duration in milliseconds, Music in seconds.

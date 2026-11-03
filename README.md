@@ -1,5 +1,7 @@
 # SpectraBar
 
+![SpectraBar on the Touch Bar](docs/touchbar.png)
+
 Now playing on the MacBook Touch Bar: album art, a rainbow equalizer that follows the real sound,
 slide to seek, and previous / play / next in one capsule. The system Control Strip stays on the right.
 
