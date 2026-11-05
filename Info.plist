@@ -14,8 +14,6 @@
   <string>1.0</string>
   <key>LSUIElement</key>
   <true/>
-  <key>NSAppleEventsUsageDescription</key>
-  <string>Shows the current song from Music, Spotify or YouTube Music on the Touch Bar.</string>
   <key>NSAudioCaptureUsageDescription</key>
   <string>Moves the Touch Bar equalizer with the music that is playing.</string>
 </dict>

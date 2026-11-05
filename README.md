@@ -5,8 +5,8 @@
 Now playing on the MacBook Touch Bar: album art, a rainbow equalizer that follows the real sound,
 slide to seek, and previous / play / next in one capsule. The system Control Strip stays on the right.
 
-Works with YouTube Music (in Google Chrome), Spotify and Apple Music. A playing source wins over a
-paused one, and the bar steps aside when nothing is playing.
+Works with anything macOS shows as Now Playing: the YouTube Music app or tab, Spotify, Apple Music,
+Safari and other browsers. The bar steps aside when nothing is playing.
 
 ## Requirements
 
@@ -57,10 +57,8 @@ Both choices apply at once and are remembered.
 
 ## Permissions
 
-- **Automation**: macOS asks once per player so the app can read the current song.
 - **System Audio Recording**: drives the equalizer. While music plays, macOS shows a recording
   indicator in the Control Strip. The audio is only measured, never saved or sent anywhere.
-- **YouTube Music**: in Chrome, turn on View → Developer → Allow JavaScript from Apple Events.
 
 The build is ad-hoc signed, so macOS may ask for permissions again after a rebuild.
 
@@ -69,11 +67,14 @@ The build is ad-hoc signed, so macOS may ask for permissions again after a rebui
 | File | Role |
 | --- | --- |
 | `main.swift` | Touch Bar layout, polling, buttons, menu bar item |
-| `Players.swift` | AppleScript for Spotify, Music and YouTube Music: track info, controls, seek |
+| `NowPlaying.swift` | Runs the helper; parses its track lines; sends play, next, previous, seek |
+| `NowPlayingHelper.m` | Reads macOS Now Playing (MediaRemote) and passes commands back |
 | `AudioSpectrum.swift` | Core Audio process tap and FFT into 96 log-spaced bands with auto-gain |
 | `TrackView.swift` | Title, time, equalizer strip, slide-to-seek touches |
 | `SpectrumStyle.swift` | The five equalizer drawing styles |
 | `SimulatedSpectrum.swift` | Fake beat for the Simulated equalizer |
 | `TouchBarPrivate.h` | Private DFRFoundation / AppKit calls for the Control Strip and system-wide bar |
 
-**Note:** showing a bar over every app relies on private Touch Bar APIs. A macOS update may break it.
+**Note:** showing a bar over every app relies on private Touch Bar APIs, and since macOS 15.4 reading
+Now Playing needs an Apple-signed process, so the helper runs inside `/usr/bin/perl`. A macOS update
+may break either.

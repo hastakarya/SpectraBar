@@ -23,7 +23,8 @@ private let styleKey = "spectrumStyle"
 
 @MainActor
 final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
-  private var activePlayer: Player?
+  private let nowPlaying = NowPlayingSource()
+  private var missedPolls = 0
   private var artURL: String?
   private let touchBar = NSTouchBar()
   private let trayButton = NSButton(title: "♪", target: nil, action: nil)
@@ -68,6 +69,7 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     DFRElementSetControlStripPresenceForIdentifier(.tray, false)
     spectrum.stop()
     simulated.stop()
+    nowPlaying.stop()
   }
 
   func touchBar(
@@ -88,26 +90,27 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     NSTouchBar.presentSystemModal(touchBar, placement: 0, trayItem: .tray)
   }
 
+  private var hasMusic: Bool { !touchBar.defaultItemIdentifiers.isEmpty }
+
   private func minimize() {
     NSTouchBar.minimizeSystemModal(touchBar)
   }
 
-  // A playing source wins over a paused one. The bar pops up when a track appears and steps
+  // macOS decides which player is Now Playing. The bar pops up when a track appears and steps
   // aside when none is left; while a track stays, closing it is respected until the next one.
   @objc private func refresh() {
-    var chromeBlocked = false
-    let found = players.compactMap { player -> (Player, NowPlaying)? in
-      guard let line = player.run(player.nowPlaying) else { return nil }
-      if line == needsChromeJS { chromeBlocked = true }
-      return NowPlaying(line).map { (player, $0) }
+    nowPlaying.start()
+    let current = nowPlaying.latest
+    // Players clear their info for a moment between songs; wait 3 s before hiding the bar.
+    if current == nil && hasMusic && missedPolls < 2 {
+      missedPolls += 1
+      return
     }
-    let current = found.first { $0.1.isPlaying } ?? found.first
-    activePlayer = current?.0
-    track.track = current?.1
-    track.hint = chromeBlocked ? "Chrome: allow JavaScript from Apple Events" : nil
-    let isPlaying = current?.1.isPlaying == true
+    missedPolls = 0
+    track.track = current
+    let isPlaying = current?.isPlaying == true
     playPauseButton.image = symbol(isPlaying ? "pause.fill" : "play.fill", "Play or pause", size: 18)
-    showArt(current?.1.artworkURL)
+    showArt(current?.artworkURL)
     // The tap runs only while music plays, so the system recording indicator stays off otherwise.
     if isPlaying {
       source == .real ? spectrum.start() : simulated.start()
@@ -115,12 +118,11 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
       stopSpectrum()
     }
 
-    let ids: [NSTouchBarItem.Identifier] =
-      current != nil ? [.art, .track, .transport] : chromeBlocked ? [.track] : []
+    let ids: [NSTouchBarItem.Identifier] = current != nil ? [.art, .track, .transport] : []
     guard touchBar.defaultItemIdentifiers != ids else { return }
-    let wasEmpty = touchBar.defaultItemIdentifiers.isEmpty
+    let hadMusic = hasMusic
     touchBar.defaultItemIdentifiers = ids
-    if ids.isEmpty { minimize() } else if wasEmpty { present() }
+    if ids.isEmpty { minimize() } else if !hadMusic { present() }
   }
 
   private func stopSpectrum() {
@@ -182,22 +184,22 @@ final class Display: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
   }
 
   @objc private func playPause() {
-    _ = activePlayer.flatMap { $0.run($0.playPause) }
+    nowPlaying.togglePlayPause()
     refresh()
   }
 
   @objc private func nextTrack() {
-    _ = activePlayer.flatMap { $0.run($0.next) }
+    nowPlaying.next()
     refresh()
   }
 
   @objc private func previousTrack() {
-    _ = activePlayer.flatMap { $0.run($0.previous) }
+    nowPlaying.previous()
     refresh()
   }
 
   private func seek(to seconds: Double) {
-    _ = activePlayer.flatMap { $0.run($0.seek(Int(seconds))) }
+    nowPlaying.seek(to: seconds)
     refresh()
   }
 

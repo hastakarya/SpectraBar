@@ -4,7 +4,6 @@ import AppKit
 /// Sliding a finger across the view scrubs; lifting it seeks.
 final class TrackView: NSView {
   var track: NowPlaying? { didSet { needsDisplay = true } }
-  var hint: String? { didSet { needsDisplay = true } }
   var onSeek: ((Double) -> Void)?
   var style = SpectrumStyle.needles { didSet { needsDisplay = true } }
   private var scrubFraction: Double?
@@ -44,10 +43,7 @@ final class TrackView: NSView {
       .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
       .foregroundColor: NSColor.secondaryLabelColor,
     ]
-    guard let track else {
-      hint?.draw(at: NSPoint(x: 0, y: 9), withAttributes: secondary)
-      return
-    }
+    guard let track else { return }
     let fraction = scrubFraction ?? (track.duration > 0 ? track.position / track.duration : 0)
     let position = scrubFraction.map { $0 * track.duration } ?? track.position
 
